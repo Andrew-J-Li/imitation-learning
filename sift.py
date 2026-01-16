@@ -2,6 +2,7 @@ from config import DATA_DIR, OUTPUT_DIR
 import os
 import numpy as np
 import cv2
+from scipy.spatial.transform import Rotation
 
 def preprocess_image(img):
     """preprocessing to improve feature matching."""
@@ -117,33 +118,15 @@ def rotation_matrix_to_euler(R):
     Returns:
         tuple: (yaw, roll, pitch) in degrees
     """
+    rot = Rotation.from_matrix(R)
 
-    # Handle gimbal lock
-    sy = np.sqrt(R[0, 0]**2 + R[1, 0]**2)
-
-    # Not at gimbal lock
-    if sy > 1e-6:
-        roll = np.arctan2(R[2, 1], R[2, 2])
-        pitch = np.arctan2(-R[2, 0], sy)
-        yaw = np.arctan2(R[1, 0], R[0, 0])
-
-    # Gimbal lock
-    else:
-        roll = np.arctan2(-R[1, 2], R[1, 1])
-        pitch = np.arctan2(-R[2, 0], sy)
-        yaw = 0.0
+    # 'ZYX' convention: first rotation around Z (yaw), then Y (pitch), then X (roll)
+    euler_angles = rot.as_euler('ZYX', degrees=True)
+    yaw, pitch, roll = euler_angles
     
-    return np.degrees(yaw), np.degrees(roll), np.degrees(pitch)
+    return yaw, roll, pitch
 
-def produce_motions(path1="sample1.jpg", path2="sample2.jpg"):
-    # Configure image paths
-    img1_path= os.path.join(DATA_DIR, path1)
-    img2_path= os.path.join(DATA_DIR, path2)
-
-    # Read images as grayscale
-    img1 = cv2.imread(img1_path, cv2.IMREAD_GRAYSCALE)
-    img2 = cv2.imread(img2_path, cv2.IMREAD_GRAYSCALE)
-
+def process_frame(img1, img2):
     # Preprocess
     processed_img1 = preprocess_image(img1)
     processed_img2 = preprocess_image(img2)
@@ -155,12 +138,6 @@ def produce_motions(path1="sample1.jpg", path2="sample2.jpg"):
     print(f"Image 2: {len(kp2)} keypoints")
     print(f"Good matches: {len(good_matches)}")
 
-    # Draw and save matches
-    img_matches = cv2.drawMatches(img1, kp1,img2, kp2,good_matches,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-    output_path = os.path.join(OUTPUT_DIR, "sift_matches.jpg")
-    cv2.imwrite(output_path, img_matches)
-    print(f"Saved to {output_path}")
-
     # Produce transformation
     H = get_transformation(kp1, kp2, good_matches)
     if H is None:
@@ -170,10 +147,31 @@ def produce_motions(path1="sample1.jpg", path2="sample2.jpg"):
     # Camera intrinsic matrix (identity if unknown)
     K = np.eye(3)
     _, Rs, Ts, normals = cv2.decomposeHomographyMat(H, K)
-
-    # Produce rotation matrix and invert for camera motion
     R = Rs[0]
-    R_camera = R.T
 
     # Convert to Eulerian angles
-    return rotation_matrix_to_euler(R_camera)
+    return rotation_matrix_to_euler(R)
+
+def video_to_motions(path='sample.mov'):
+    video_path = os.path.join(DATA_DIR, path)
+    vidcap = cv2.VideoCapture(video_path)
+
+    prev_frame = None
+    motions = []
+    while True:
+        success, frame = vidcap.read()
+
+        # End of video
+        if not success:
+            break
+            
+        # Process motion
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if prev_frame is not None:
+            motions.append(process_frame(prev_frame, gray_frame))
+        prev_frame = gray_frame
+
+    vidcap.release()
+    cv2.destroyAllWindows()
+
+    return motions

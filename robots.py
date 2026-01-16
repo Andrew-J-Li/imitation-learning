@@ -3,7 +3,7 @@ from robosuite.environments.manipulation.manipulation_env import ManipulationEnv
 from robosuite.models.arenas import EmptyArena
 from robosuite.models.tasks import ManipulationTask
 from robosuite.controllers import load_composite_controller_config
-from sift import produce_motions
+from sift import video_to_motions
 import numpy as np
 
 class MyCustomEnv(ManipulationEnv):
@@ -106,52 +106,53 @@ class MyCustomEnv(ManipulationEnv):
 
 # Create and run the environment
 if __name__ == "__main__":
-    controller_config = load_composite_controller_config(controller="BASIC")
+    print(video_to_motions())
+    # controller_config = load_composite_controller_config(controller="BASIC")
 
-    env = MyCustomEnv(
-        robots="GR1",
-        controller_configs=controller_config,
-        has_renderer=True,
-        render_camera="frontview",
-    )
-    obs = env.reset()
+    # env = MyCustomEnv(
+    #     robots="GR1",
+    #     controller_configs=controller_config,
+    #     has_renderer=True,
+    #     render_camera="frontview",
+    # )
+    # obs = env.reset()
 
-    # Target rotation from sift
-    yaw, roll, pitch = produce_motions()
-    print(f"Target: yaw={yaw:.2f}°, roll={roll:.2f}°, pitch={pitch:.2f}°")
+    # # Target rotation from sift
+    # yaw, roll, pitch = process_frame()
+    # print(f"Target: yaw={yaw:.2f}°, roll={roll:.2f}°, pitch={pitch:.2f}°")
 
-    # Target angles in degrees
-    target_yaw = yaw
-    target_roll = roll
-    target_pitch = pitch
+    # # Target angles in degrees
+    # target_yaw = yaw
+    # target_roll = roll
+    # target_pitch = pitch
 
-    for step in range(150):
-        # Get current head position
-        head_yaw_pos = env.sim.data.qpos[env.sim.model.joint_name2id('robot0_head_yaw')]
-        head_roll_pos = env.sim.data.qpos[env.sim.model.joint_name2id('robot0_head_roll')]
-        head_pitch_pos = env.sim.data.qpos[env.sim.model.joint_name2id('robot0_head_pitch')]
+    # for step in range(150):
+    #     # Get current head position
+    #     head_yaw_pos = env.sim.data.qpos[env.sim.model.joint_name2id('robot0_head_yaw')]
+    #     head_roll_pos = env.sim.data.qpos[env.sim.model.joint_name2id('robot0_head_roll')]
+    #     head_pitch_pos = env.sim.data.qpos[env.sim.model.joint_name2id('robot0_head_pitch')]
         
-        head_yaw_deg = np.degrees(head_yaw_pos)
-        head_roll_deg = np.degrees(head_roll_pos)
-        head_pitch_deg = np.degrees(head_pitch_pos)
+    #     head_yaw_deg = np.degrees(head_yaw_pos)
+    #     head_roll_deg = np.degrees(head_roll_pos)
+    #     head_pitch_deg = np.degrees(head_pitch_pos)
         
-        # Compute error
-        yaw_error = target_yaw - head_yaw_deg
-        roll_error = target_roll - head_roll_deg
-        pitch_error = target_pitch - head_pitch_deg
+    #     # Compute error
+    #     yaw_error = target_yaw - head_yaw_deg
+    #     roll_error = target_roll - head_roll_deg
+    #     pitch_error = target_pitch - head_pitch_deg
         
-        # Proportional control: action proportional to error
-        # Scale error to action space (error in degrees / max degrees)
-        action = np.zeros(env.action_dim)
-        action[15] = np.clip(yaw_error / 90.0, -1.0, 1.0)
-        action[16] = np.clip(roll_error / 15.0, -1.0, 1.0)
-        action[17] = np.clip(pitch_error / 15.0, -1.0, 1.0)
+    #     # Proportional control: action proportional to error
+    #     # Scale error to action space (error in degrees / max degrees)
+    #     action = np.zeros(env.action_dim)
+    #     action[15] = np.clip(yaw_error / 90.0, -1.0, 1.0)
+    #     action[16] = np.clip(roll_error / 15.0, -1.0, 1.0)
+    #     action[17] = np.clip(pitch_error / 15.0, -1.0, 1.0)
         
-        obs, reward, done, info = env.step(action)
-        env.render()
+    #     obs, reward, done, info = env.step(action)
+    #     env.render()
         
-        # Print every 50 steps
-        if step % 50 == 0:
-            print(f"Step {step:3d}: head_yaw={head_yaw_deg:6.2f}°, head_roll={head_roll_deg:6.2f}°, head_pitch={head_pitch_deg:6.2f}° | err: y={yaw_error:.1f} r={roll_error:.1f} p={pitch_error:.1f}")
+    #     # Print every 50 steps
+    #     if step % 50 == 0:
+    #         print(f"Step {step:3d}: head_yaw={head_yaw_deg:6.2f}°, head_roll={head_roll_deg:6.2f}°, head_pitch={head_pitch_deg:6.2f}° | err: y={yaw_error:.1f} r={roll_error:.1f} p={pitch_error:.1f}")
 
-    env.close()
+    # env.close()
