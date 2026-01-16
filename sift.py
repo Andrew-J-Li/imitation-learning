@@ -1,4 +1,4 @@
-from config import DATA_DIR, OUTPUT_DIR
+from config import DATA_DIR
 import os
 import numpy as np
 import cv2
@@ -109,22 +109,6 @@ def get_transformation(kp1, kp2, matches):
                 best_error = error
     
     return best_H
-
-def rotation_matrix_to_euler(R):
-    """
-    Convert 3x3 rotation matrix to Euler angles (yaw, pitch, roll).
-    Uses ZYX convention: yaw (Z), pitch (Y), roll (X).
-    
-    Returns:
-        tuple: (yaw, roll, pitch) in degrees
-    """
-    rot = Rotation.from_matrix(R)
-
-    # 'ZYX' convention: first rotation around Z (yaw), then Y (pitch), then X (roll)
-    euler_angles = rot.as_euler('ZYX', degrees=True)
-    yaw, pitch, roll = euler_angles
-    
-    return yaw, roll, pitch
 
 def process_frame(img1, img2):
     # Preprocess
