@@ -115,7 +115,7 @@ def rotation_matrix_to_euler(R):
     Uses ZYX convention: yaw (Z), pitch (Y), roll (X).
     
     Returns:
-        tuple: (yaw, pitch, roll) in degrees
+        tuple: (yaw, roll, pitch) in degrees
     """
 
     # Handle gimbal lock
@@ -133,7 +133,7 @@ def rotation_matrix_to_euler(R):
         pitch = np.arctan2(-R[2, 0], sy)
         yaw = 0.0
     
-    return np.degrees(yaw), np.degrees(pitch), np.degrees(roll)
+    return np.degrees(yaw), np.degrees(roll), np.degrees(pitch)
 
 def produce_motions(path1="sample1.jpg", path2="sample2.jpg"):
     # Configure image paths
