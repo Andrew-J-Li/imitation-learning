@@ -65,7 +65,7 @@ def validate_transformation(src_pts, dst_pts, H):
     # Calculate reprojection error
     errors = np.sqrt(np.sum((dst_pts - transformed_pts) ** 2, axis=2))
     
-    # Remove outliers before computing mean (ignore worst 20% of matches)
+    # Remove outliers before computing mean
     sorted_errors = np.sort(errors.flatten())
     inlier_count = int(len(sorted_errors) * 0.8)
     if inlier_count > 0:
@@ -109,6 +109,29 @@ def get_transformation(kp1, kp2, matches):
     
     return best_H
 
+def decompose_homography(H):
+    if H is None:
+        return None
+    
+    _, Rs, Ts, Ns = cv2.decomposeHomographyMat(H, np.eye(3))
+    
+    # Select the most probable solution
+    R = Rs[0]
+    T = Ts[0]
+    
+    # Apply scale factor to translation
+    T = T * 0.0001
+    
+    # Convert rotation matrix to quaternion
+    q, _ = cv2.Rodrigues(R)
+    angle = np.linalg.norm(q)
+    axis = q / angle if angle != 0 else q
+    qw = np.cos(angle / 2.0)
+    qx, qy, qz = axis * np.sin(angle / 2.0)
+    
+    return [float(qx.item()), float(qy.item()), float(qz.item()), float(qw.item()), 
+            float(T[0].item()), float(T[1].item()), float(T[2].item())]
+
 if __name__ == "__main__":
     # Configure image paths
     img1_path= os.path.join(DATA_DIR, "sample1.jpg")
@@ -130,16 +153,11 @@ if __name__ == "__main__":
     print(f"Good matches: {len(good_matches)}")
 
     # Draw and save matches
-    img_matches = cv2.drawMatches(
-        img1, kp1,
-        img2, kp2,
-        good_matches,
-        None,
-        flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS
-    )
-
-    get_transformation(kp1, kp2, good_matches)
-
+    img_matches = cv2.drawMatches(img1, kp1,img2, kp2,good_matches,None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
     output_path = os.path.join(OUTPUT_DIR, "sift_matches.jpg")
     cv2.imwrite(output_path, img_matches)
     print(f"Saved to {output_path}")
+
+    # Produce transformation
+    H = get_transformation(kp1, kp2, good_matches)
+    transformation = decompose_homography(H)
