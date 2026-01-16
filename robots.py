@@ -2,8 +2,7 @@ import robosuite as suite
 from robosuite.environments.manipulation.manipulation_env import ManipulationEnv
 from robosuite.models.arenas import EmptyArena
 from robosuite.models.tasks import ManipulationTask
-from robosuite.controllers import load_composite_controller_config
-import numpy as np
+from sift import produce_motions
 
 class MyCustomEnv(ManipulationEnv):
     """Custom environment with GR1 robot."""
@@ -105,21 +104,45 @@ class MyCustomEnv(ManipulationEnv):
 
 # Create and run the environment
 if __name__ == "__main__":
+    print(produce_motions())
+    # controller_config = load_composite_controller_config(controller="BASIC")
 
-    controller_config = load_composite_controller_config(controller="BASIC")
+    # env = MyCustomEnv(
+    #     robots="GR1",
+    #     controller_configs=controller_config,
+    #     has_renderer=True,
+    #     render_camera="frontview",
+    # )
 
-    env = MyCustomEnv(
-        robots="GR1",
-        controller_configs=controller_config,
-        has_renderer=True,
-        render_camera="frontview",
-    )
+    # obs = env.reset()
 
-    obs = env.reset()
+    # # Print action dimension info
+    # print(f"Action dimension: {env.action_dim}")
+    
+    # # Get the robot to understand action structure
+    # robot = env.robots[0]
+    
+    # for step in range(150):
+    #     action = np.zeros(env.action_dim)
+        
+    #     # Head is at indices 15-17 (yaw, roll, pitch)
+    #     action[15] = -1.0  # Head yaw = rotate toward +90 degrees
+        
+    #     obs, reward, done, info = env.step(action)
+    #     env.render()
+        
+    #     # Print head orientation every 50 steps
+    #     if step % 50 == 0:
+    #         # Get head joint positions from simulation
+    #         head_yaw_pos = env.sim.data.qpos[env.sim.model.joint_name2id('robot0_head_yaw')]
+    #         head_roll_pos = env.sim.data.qpos[env.sim.model.joint_name2id('robot0_head_roll')]
+    #         head_pitch_pos = env.sim.data.qpos[env.sim.model.joint_name2id('robot0_head_pitch')]
+            
+    #         # Convert to degrees
+    #         head_yaw_deg = np.degrees(head_yaw_pos)
+    #         head_roll_deg = np.degrees(head_roll_pos)
+    #         head_pitch_deg = np.degrees(head_pitch_pos)
+            
+    #         print(f"Step {step:3d}: head_yaw={head_yaw_deg:6.2f}°, head_roll={head_roll_deg:6.2f}°, head_pitch={head_pitch_deg:6.2f}°")
 
-    for _ in range(1000):
-        action = np.zeros(env.action_dim)
-        obs, reward, done, info = env.step(action)
-        env.render()
-
-    env.close()
+    # env.close()

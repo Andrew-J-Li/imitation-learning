@@ -109,33 +109,36 @@ def get_transformation(kp1, kp2, matches):
     
     return best_H
 
-def decompose_homography(H):
-    if H is None:
-        return None
+def rotation_matrix_to_euler(R):
+    """
+    Convert 3x3 rotation matrix to Euler angles (yaw, pitch, roll).
+    Uses ZYX convention: yaw (Z), pitch (Y), roll (X).
     
-    _, Rs, Ts, Ns = cv2.decomposeHomographyMat(H, np.eye(3))
-    
-    # Select the most probable solution
-    R = Rs[0]
-    T = Ts[0]
-    
-    # Apply scale factor to translation
-    T = T * 0.0001
-    
-    # Convert rotation matrix to quaternion
-    q, _ = cv2.Rodrigues(R)
-    angle = np.linalg.norm(q)
-    axis = q / angle if angle != 0 else q
-    qw = np.cos(angle / 2.0)
-    qx, qy, qz = axis * np.sin(angle / 2.0)
-    
-    return [float(qx.item()), float(qy.item()), float(qz.item()), float(qw.item()), 
-            float(T[0].item()), float(T[1].item()), float(T[2].item())]
+    Returns:
+        tuple: (yaw, pitch, roll) in degrees
+    """
 
-if __name__ == "__main__":
+    # Handle gimbal lock
+    sy = np.sqrt(R[0, 0]**2 + R[1, 0]**2)
+
+    # Not at gimbal lock
+    if sy > 1e-6:
+        roll = np.arctan2(R[2, 1], R[2, 2])
+        pitch = np.arctan2(-R[2, 0], sy)
+        yaw = np.arctan2(R[1, 0], R[0, 0])
+
+    # Gimbal lock
+    else:
+        roll = np.arctan2(-R[1, 2], R[1, 1])
+        pitch = np.arctan2(-R[2, 0], sy)
+        yaw = 0.0
+    
+    return np.degrees(yaw), np.degrees(pitch), np.degrees(roll)
+
+def produce_motions(path1="sample1.jpg", path2="sample2.jpg"):
     # Configure image paths
-    img1_path= os.path.join(DATA_DIR, "sample1.jpg")
-    img2_path= os.path.join(DATA_DIR, "sample2.jpg")
+    img1_path= os.path.join(DATA_DIR, path1)
+    img2_path= os.path.join(DATA_DIR, path2)
 
     # Read images as grayscale
     img1 = cv2.imread(img1_path, cv2.IMREAD_GRAYSCALE)
@@ -160,4 +163,17 @@ if __name__ == "__main__":
 
     # Produce transformation
     H = get_transformation(kp1, kp2, good_matches)
-    transformation = decompose_homography(H)
+    if H is None:
+        return None
+    
+    # Decompose homography to get rotation matrix
+    # Camera intrinsic matrix (identity if unknown)
+    K = np.eye(3)
+    _, Rs, Ts, normals = cv2.decomposeHomographyMat(H, K)
+
+    # Produce rotation matrix and invert for camera motion
+    R = Rs[0]
+    R_camera = R.T
+
+    # Convert to Eulerian angles
+    return rotation_matrix_to_euler(R_camera)
