@@ -134,23 +134,55 @@ def process_frame(img1, img2):
     sift = cv2.SIFT_create()
     kp1, kp2, good_matches = find_matches(sift, processed_img1, processed_img2)
 
-    print(f"Image 1: {len(kp1)} keypoints")
-    print(f"Image 2: {len(kp2)} keypoints")
-    print(f"Good matches: {len(good_matches)}")
+    if len(good_matches) < 10:
+        return (0.0, 0.0, 0.0)
 
-    # Produce transformation
-    H = get_transformation(kp1, kp2, good_matches)
-    if H is None:
-        return None
+    # Get matched point pairs
+    pts1 = np.float32([kp1[m.queryIdx].pt for m in good_matches])
+    pts2 = np.float32([kp2[m.trainIdx].pt for m in good_matches])
     
-    # Decompose homography to get rotation matrix
-    # Camera intrinsic matrix (identity if unknown)
-    K = np.eye(3)
-    _, Rs, Ts, normals = cv2.decomposeHomographyMat(H, K)
-    R = Rs[0]
+    # Image center
+    img_width = img1.shape[1]
+    img_height = img1.shape[0]
+    cx, cy = img_width / 2, img_height / 2
+    
+    # Compute displacement
+    dx = pts2[:, 0] - pts1[:, 0]
+    dy = pts2[:, 1] - pts1[:, 1]
+    
+    # Use median for translation (yaw / pitch)
+    median_dx = np.median(dx)
+    median_dy = np.median(dy)
+    
+    # Remove translation to isolate rotation
+    pts2_corrected = pts2.copy()
+    pts2_corrected[:, 0] -= median_dx
+    pts2_corrected[:, 1] -= median_dy
+    
+    # Compute roll from the residual rotational motion around image center
+    angles1 = np.arctan2(pts1[:, 1] - cy, pts1[:, 0] - cx)
+    angles2 = np.arctan2(pts2_corrected[:, 1] - cy, pts2_corrected[:, 0] - cx)
+    
+    # Angular difference
+    angle_diff = angles2 - angles1
+    angle_diff = np.arctan2(np.sin(angle_diff), np.cos(angle_diff))
+    
+    # Median angular change is the roll
+    median_roll = np.degrees(np.median(angle_diff))
+    
+    # Convert pixel shift to approximate rotation angle with ~60 degree FOV
+    h_fov = 60.0
+    v_fov = h_fov * img_height / img_width
+    
+    pixels_per_degree_h = img_width / h_fov
+    pixels_per_degree_v = img_height / v_fov
 
-    # Convert to Eulerian angles
-    return rotation_matrix_to_euler(R)
+    # Compute final angles 
+    yaw = median_dx / pixels_per_degree_h
+    pitch = -median_dy / pixels_per_degree_v
+    roll = -median_roll
+    
+    return (yaw, roll, pitch)
 
 def video_to_motions(path='sample.mov'):
     video_path = os.path.join(DATA_DIR, path)
