@@ -107,6 +107,9 @@ class MyCustomEnv(ManipulationEnv):
 
 # Create and run the environment
 if __name__ == "__main__":
+    # Hyperparameters
+    OFFSET = 8  # Lookahead frames for target
+    
     controller_config = load_composite_controller_config(controller="BASIC")
 
     env = MyCustomEnv(
@@ -118,7 +121,7 @@ if __name__ == "__main__":
     obs = env.reset()
 
     # Get relative motions from video
-    motions = video_to_motions(path='yaw.mov')
+    motions = video_to_motions(path='interpolation.mov')
     
     # Accumulate motions to get absolute target at each frame
     cumulative_yaw = 0.0
@@ -132,7 +135,11 @@ if __name__ == "__main__":
             cumulative_yaw += motion[0]
             cumulative_roll += motion[1]
             cumulative_pitch += motion[2]
-        targets.append((cumulative_yaw, cumulative_roll, cumulative_pitch))
+        # Cap at joint limits
+        capped_yaw = np.clip(cumulative_yaw, -90.0, 90.0)
+        capped_roll = np.clip(cumulative_roll, -15.0, 15.0)
+        capped_pitch = np.clip(cumulative_pitch, -15.0, 15.0)
+        targets.append((capped_yaw, capped_roll, capped_pitch))
     
     print(f"Total accumulated rotation: yaw={cumulative_yaw:.1f}°, roll={cumulative_roll:.1f}°, pitch={cumulative_pitch:.1f}°")
 
@@ -148,14 +155,13 @@ if __name__ == "__main__":
         head_roll_deg = np.degrees(head_roll_pos)
         head_pitch_deg = np.degrees(head_pitch_pos)
 
-        # Use accumulated targets (or hold position after video ends)
-        if step < len(targets):
-            target_yaw, target_roll, target_pitch = targets[step]
+        # Use target with offset
+        target_idx = min(step + OFFSET, len(targets) - 1)
+        if target_idx >= 0 and target_idx < len(targets):
+            target_yaw, target_roll, target_pitch = targets[target_idx]
         else:
             target_yaw, target_roll, target_pitch = head_yaw_deg, head_roll_deg, head_pitch_deg
 
-        print(target_yaw)
-        
         # Compute error
         yaw_error = target_yaw - head_yaw_deg
         roll_error = target_roll - head_roll_deg
