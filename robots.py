@@ -118,7 +118,7 @@ if __name__ == "__main__":
     obs = env.reset()
 
     # Get relative motions from video
-    motions = video_to_motions()
+    motions = video_to_motions(path='yaw.mov')
     
     # Accumulate motions to get absolute target at each frame
     cumulative_yaw = 0.0
@@ -153,6 +153,8 @@ if __name__ == "__main__":
             target_yaw, target_roll, target_pitch = targets[step]
         else:
             target_yaw, target_roll, target_pitch = head_yaw_deg, head_roll_deg, head_pitch_deg
+
+        print(target_yaw)
         
         # Compute error
         yaw_error = target_yaw - head_yaw_deg
@@ -195,9 +197,9 @@ if __name__ == "__main__":
         # Calculate percentage errors relative to target magnitude
         eps = 0.1
         pct_errors = np.column_stack([
-            errors_arr[:, 0] / np.maximum(errors_arr[:, 3], eps) * 100,
-            errors_arr[:, 1] / np.maximum(errors_arr[:, 4], eps) * 100,
-            errors_arr[:, 2] / np.maximum(errors_arr[:, 5], eps) * 100
+            np.minimum(errors_arr[:, 0] / np.maximum(errors_arr[:, 3], eps) * 100, 100),
+            np.minimum(errors_arr[:, 1] / np.maximum(errors_arr[:, 4], eps) * 100, 100),
+            np.minimum(errors_arr[:, 2] / np.maximum(errors_arr[:, 5], eps) * 100, 100)
         ])
         
         fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)

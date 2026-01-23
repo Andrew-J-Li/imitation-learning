@@ -154,8 +154,8 @@ def process_frame(img1, img2):
     # Median angular change is the roll
     median_roll = np.degrees(np.median(angle_diff))
     
-    # Convert pixel shift to approximate rotation angle with ~60 degree FOV
-    h_fov = 60.0
+    # Convert pixel shift to approximate rotation angle with 50 degree FOV
+    h_fov = 50.0
     v_fov = h_fov * img_height / img_width
     
     pixels_per_degree_h = img_width / h_fov
