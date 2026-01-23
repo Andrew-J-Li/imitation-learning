@@ -5,6 +5,7 @@ from robosuite.models.tasks import ManipulationTask
 from robosuite.controllers import load_composite_controller_config
 from sift import video_to_motions
 import numpy as np
+import matplotlib.pyplot as plt
 
 class MyCustomEnv(ManipulationEnv):
     """Custom environment with GR1 robot."""
@@ -135,7 +136,9 @@ if __name__ == "__main__":
     
     print(f"Total accumulated rotation: yaw={cumulative_yaw:.1f}°, roll={cumulative_roll:.1f}°, pitch={cumulative_pitch:.1f}°")
 
-    for step in range(len(targets) + 400):
+    errors = []
+
+    for step in range(len(targets) + 50):
         # Get current head position
         head_yaw_pos = env.sim.data.qpos[env.sim.model.joint_name2id('robot0_head_yaw')]
         head_roll_pos = env.sim.data.qpos[env.sim.model.joint_name2id('robot0_head_roll')]
@@ -165,9 +168,81 @@ if __name__ == "__main__":
         
         obs, reward, done, info = env.step(action)
         env.render()
-        
+
+        # Examine accumulated errors
+        if step > 0 and step <= len(targets):
+            prev_yaw, prev_roll, prev_pitch = targets[step - 1]
+            errors.append((
+                abs(head_yaw_deg - prev_yaw),
+                abs(head_roll_deg - prev_roll),
+                abs(head_pitch_deg - prev_pitch),
+                abs(prev_yaw),
+                abs(prev_roll),
+                abs(prev_pitch)
+            ))
+
         # Print every 50 steps
         if step % 50 == 0:
             print(f"Step {step:3d}: head_yaw={head_yaw_deg:6.2f}°, head_roll={head_roll_deg:6.2f}°, head_pitch={head_pitch_deg:6.2f}° | err: y={yaw_error:.1f} r={roll_error:.1f} p={pitch_error:.1f}")
 
     env.close()
+
+    # Plot errors over frames
+    if errors:
+        errors_arr = np.array(errors)
+        frames = np.arange(len(errors))
+        
+        # Calculate percentage errors relative to target magnitude
+        eps = 0.1
+        pct_errors = np.column_stack([
+            errors_arr[:, 0] / np.maximum(errors_arr[:, 3], eps) * 100,
+            errors_arr[:, 1] / np.maximum(errors_arr[:, 4], eps) * 100,
+            errors_arr[:, 2] / np.maximum(errors_arr[:, 5], eps) * 100
+        ])
+        
+        fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
+        
+        # Yaw
+        ax1 = axes[0]
+        ax1_pct = ax1.twinx()
+        line1, = ax1.plot(frames, errors_arr[:, 0], 'b-', linewidth=0.8, label='Degrees')
+        line1_pct, = ax1_pct.plot(frames, pct_errors[:, 0], 'b--', linewidth=0.8, alpha=0.5, label='Percent')
+        ax1.set_ylabel('Yaw Error (°)', color='b')
+        ax1_pct.set_ylabel('Yaw Error (%)', color='b')
+        ax1.set_title('Tracking Errors Over Time')
+        ax1.grid(True, alpha=0.3)
+        ax1.axhline(y=0, color='k', linestyle='--', alpha=0.5)
+        ax1.legend(handles=[line1, line1_pct], loc='upper right')
+        
+        # Roll
+        ax2 = axes[1]
+        ax2_pct = ax2.twinx()
+        line2, = ax2.plot(frames, errors_arr[:, 1], 'g-', linewidth=0.8, label='Degrees')
+        line2_pct, = ax2_pct.plot(frames, pct_errors[:, 1], 'g--', linewidth=0.8, alpha=0.5, label='Percent')
+        ax2.set_ylabel('Roll Error (°)', color='g')
+        ax2_pct.set_ylabel('Roll Error (%)', color='g')
+        ax2.grid(True, alpha=0.3)
+        ax2.axhline(y=0, color='k', linestyle='--', alpha=0.5)
+        ax2.legend(handles=[line2, line2_pct], loc='upper right')
+        
+        # Pitch
+        ax3 = axes[2]
+        ax3_pct = ax3.twinx()
+        line3, = ax3.plot(frames, errors_arr[:, 2], 'r-', linewidth=0.8, label='Degrees')
+        line3_pct, = ax3_pct.plot(frames, pct_errors[:, 2], 'r--', linewidth=0.8, alpha=0.5, label='Percent')
+        ax3.set_ylabel('Pitch Error (°)', color='r')
+        ax3_pct.set_ylabel('Pitch Error (%)', color='r')
+        ax3.set_xlabel('Frame')
+        ax3.grid(True, alpha=0.3)
+        ax3.axhline(y=0, color='k', linestyle='--', alpha=0.5)
+        ax3.legend(handles=[line3, line3_pct], loc='upper right')
+        
+        plt.tight_layout()
+        plt.savefig('output/tracking_errors.png', dpi=150)
+        plt.show()
+        
+        # Print summary stats
+        print(f"\nError Statistics:")
+        print(f"  Yaw   - Mean: {np.mean(errors_arr[:, 0]):6.2f}° ({np.mean(pct_errors[:, 0]):5.1f}%), Std: {np.std(errors_arr[:, 0]):6.2f}°, Max: {np.max(errors_arr[:, 0]):6.2f}°")
+        print(f"  Roll  - Mean: {np.mean(errors_arr[:, 1]):6.2f}° ({np.mean(pct_errors[:, 1]):5.1f}%), Std: {np.std(errors_arr[:, 1]):6.2f}°, Max: {np.max(errors_arr[:, 1]):6.2f}°")
+        print(f"  Pitch - Mean: {np.mean(errors_arr[:, 2]):6.2f}° ({np.mean(pct_errors[:, 2]):5.1f}%), Std: {np.std(errors_arr[:, 2]):6.2f}°, Max: {np.max(errors_arr[:, 2]):6.2f}°")
